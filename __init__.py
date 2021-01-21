@@ -315,7 +315,7 @@ class LoginLayoutPanel(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        current_version = addon_updater_ops.update.update_version
+        current_version = addon_updater_ops.get_current_version(self, context)
         print('current_version')
         print(current_version)
         ## Custom logo label
