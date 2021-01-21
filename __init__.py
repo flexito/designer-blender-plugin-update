@@ -316,9 +316,9 @@ class LoginLayoutPanel(Panel):
         layout = self.layout
         scene = context.scene
         current_version = addon_updater_ops.get_current_version(self, context)
-        print('current_version')
-        print(current_version)
         ## Custom logo label
+        layout.label(text="selected github version: " + current_version)
+        layout.row()
         layout.label(text="SWIVEL", icon_value=custom_icons["custom_icon"].icon_id)
 
         rowEmail = layout.row()
@@ -340,7 +340,6 @@ class LoginLayoutPanel(Panel):
         if scene.selectedAgileVersionId:
             layout.label(text="Selected View    : " + scene.selectedAgileViewName)
             layout.label(text="Selected Version : " + scene.selectedAgileVersionName)
-            layout.label(text="selected github version: "+ current_version)
             ## Export Operator
             rowExport = layout.row()
             rowExport.operator(ExportSomeData.bl_idname,text="Swivel Export", icon='EXPORT')
