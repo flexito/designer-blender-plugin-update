@@ -22,7 +22,7 @@ icons_dir = os.path.join(os.path.dirname(__file__), "icons")
 bl_info = {
     "name": "Swivel Exporter",
     "author": "Swivel",
-    "version": (1, 0),
+    "version": (0, 1),
     "blender": (2, 80, 0),
     "location": "File > Export > Swivel",
     "description": "Swivel Exporter custom",
