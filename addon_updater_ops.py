@@ -1098,8 +1098,7 @@ def update_settings_ui(self, context, element=None):
 		row.label(text="Last update check: Never")
 
 def get_current_version(self, context):
-    return "Check now for an update to the {x} addon".format(
-														x=updater.addon)
+    return "Check now for an update to the {x} addon".format(x=updater.addon)
 
 def update_settings_ui_condensed(self, context, element=None):
 	"""Preferences - Condensed drawing within preferences
