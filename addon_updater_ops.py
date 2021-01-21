@@ -1098,7 +1098,7 @@ def update_settings_ui(self, context, element=None):
 		row.label(text="Last update check: Never")
 
 def get_current_version(self, context):
-    return self.version_tuple_from_text(tag["name"])
+    return str(updater.update_version)
 
 def update_settings_ui_condensed(self, context, element=None):
 	"""Preferences - Condensed drawing within preferences
