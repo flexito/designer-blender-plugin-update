@@ -11,6 +11,10 @@ import uuid
 import bpy
 import bpy.utils.previews
 from . import addon_updater_ops
+
+## Envionment Base URL (dev/prod/stag)
+ENV_BASE_URL = "https://api-dev-swivel.com"
+
 # global variable to store icons in
 custom_icons = None
 
