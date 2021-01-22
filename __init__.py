@@ -327,7 +327,7 @@ class MessageOperator(bpy.types.Operator):
 ## Login panel use for display login UI layout in modifier properties
 class LoginLayoutPanel(Panel):
     bl_idname = "SCENE_PT_layout"
-    bl_label = "Swivel Login Panel Version: " + str(addon_updater_ops.updater.current_version))
+    bl_label = "Swivel Login Panel Version: " + str(addon_updater_ops.updater.current_version)
     bl_category = "Swivel Addon"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
