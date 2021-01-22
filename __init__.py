@@ -331,7 +331,7 @@ class MessageOperator(bpy.types.Operator):
 ## Login panel use for display login UI layout in modifier properties
 class LoginLayoutPanel(Panel):
     bl_idname = "SCENE_PT_layout"
-    bl_label = "Swivel Login Panel Version: " + str(addon_updater_ops.updater.current_version)
+    bl_label = "Swivel Login Panel"
     bl_category = "Swivel Addon"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -340,9 +340,8 @@ class LoginLayoutPanel(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        layout.label(text="selected github version :"+ str(addon_updater_ops.updater.current_version))
         ## Custom logo label
-        layout.label(text="SWIVEL", icon_value=custom_icons["custom_icon"].icon_id)
+        layout.label(text="SWIVEL version :" + str(addon_updater_ops.updater.current_version), icon_value=custom_icons["custom_icon"].icon_id)
 
         rowEmail = layout.row()
         loginPropertyGroupTools = context.scene.loginPropertyGroupTools
