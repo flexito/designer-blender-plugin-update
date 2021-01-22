@@ -37,53 +37,67 @@ def ShowMessageBox(message="", title="Message Box", icon='WARNING'):
         self.layout.label(text=message)
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
-
-def write_some_data(context, filepath, use_some_setting):
-    fileName = os.path.basename(filepath)
-
-    ## Export file in .glb format in local system
-    bpy.ops.export_scene.gltf(filepath=filepath, export_format='GLB')
-    uuidValue = str(uuid.uuid1())
-
-    ## Fetch s3 signed in url
-    fetchS3SignedURLRequestPayload = {}
-    fetchS3SignedURLRequestPayload['file_type'] = "file/octet-stream"
-    fetchS3SignedURLRequestPayload['file_name'] = "uploads/file_upload/file_name/"+uuidValue+"/"+fileName
-    S3URLRequestData = json.dumps(fetchS3SignedURLRequestPayload)
-    fetchS3SignedURLResponsePayload = requests.post(bpy.types.Scene.functionalBaseURL[1]['default']+"/get_s3_signed_url",data = S3URLRequestData)
-    S3URLResponseData = json.loads(fetchS3SignedURLResponsePayload.content)
-
-    print("SUCCESS:: Fetch S3 Signin URL")
-
-    ## Uploading .glb file on S3 bucket
-    uploadFileRequestHeader = {'Content-Type': 'file/octet-stream','Access-Control-Allow-Origin': '*'}
-    with open(filepath, "rb") as a_file:
-        files = {'file': a_file}
-        values = {'file_name': fileName}
-        readFile = a_file.read()
-        response = requests.put(S3URLResponseData['signed_url'],data = readFile,headers= uploadFileRequestHeader)
-    print("SUCCESS:: Uploading Completed")
-
-    ## Update agile version details in db
-    fileType = 'GLB'
-    updateAgileVersionEndPointHeader = {'authorization': bpy.context.scene.token,'Access-Control-Allow-Origin': '*'}
-    updateVersionRequestPayload = 'mutation m{updateThreedModel(agileVersion:{agile_version_id:"' + bpy.context.scene.selectedAgileVersionId + '",threedModel:[{type:' + fileType + ',name:"' + fileName + '",uuid:"' + uuidValue + '"}]}),{agile_version_id}}';
-
-    udpateVersionResponsePayload = requests.post(bpy.types.Scene.coreBaseURL[1]['default'],data = updateVersionRequestPayload,headers= updateAgileVersionEndPointHeader)
-    updateVersionResponseData = json.loads(udpateVersionResponsePayload.content)
-
-    ## reset value
+## Reset scene values
+def resetToDefaultValue():
     bpy.context.scene.selectedAgileVersionId = ""
     bpy.context.scene.name = ""
     bpy.context.scene.isAgileVersionSelected = False
     bpy.context.scene.isProcessRunning = False;
 
-    print("SUCCESS:: Agile Version Updated")
 
-    ## Invoke/Call operation complete popup
-    bpy.ops.message.display('INVOKE_DEFAULT',message = "File Exporting Completed and Upload Finished.")
-    return {'FINISHED'}
+def write_some_data(context, filepath, use_some_setting):
+    try:
+        fileName = os.path.basename(filepath)
+        ## Export file in .glb format in local system
+        bpy.ops.export_scene.gltf(filepath=filepath, export_format='GLB')
+        uuidValue = str(uuid.uuid1())
 
+        ## Fetch s3 signed in url
+        fetchS3SignedURLRequestPayload = {}
+        fetchS3SignedURLRequestPayload['file_type'] = "file/octet-stream"
+        fetchS3SignedURLRequestPayload['file_name'] = "uploads/file_upload/file_name/"+uuidValue+"/"+fileName
+        S3URLRequestData = json.dumps(fetchS3SignedURLRequestPayload)
+
+        fetchS3SignedURLResponsePayload = requests.post(bpy.types.Scene.functionalBaseURL[1]['default']+"/get_s3_signed_url",data = S3URLRequestData)
+        S3URLResponseData = json.loads(fetchS3SignedURLResponsePayload.content)
+
+        if 'signed_url' in S3URLResponseData:
+            print("SUCCESS:: Fetch S3 SignIn URL")
+
+            ## Uploading .glb file on S3 bucket
+            uploadFileRequestHeader = {'Content-Type': 'file/octet-stream','Access-Control-Allow-Origin': '*'}
+            with open(filepath, "rb") as a_file:
+                files = {'file': a_file}
+                values = {'file_name': fileName}
+                readFile = a_file.read()
+                response = requests.put(S3URLResponseData['signed_url'],data = readFile,headers= uploadFileRequestHeader)
+            print("SUCCESS:: Uploading Completed")
+
+            ## Update agile version details in db
+            fileType = 'GLB'
+            updateAgileVersionEndPointHeader = {'authorization': bpy.context.scene.token,'Access-Control-Allow-Origin': '*'}
+            updateVersionRequestPayload = 'mutation m{updateThreedModel(agileVersion:{agile_version_id:"' + bpy.context.scene.selectedAgileVersionId + '",threedModel:[{type:' + fileType + ',name:"' + fileName + '",uuid:"' + uuidValue + '"}]}),{agile_version_id}}';
+
+            udpateVersionResponsePayload = requests.post(bpy.types.Scene.coreBaseURL[1]['default'],data = updateVersionRequestPayload,headers= updateAgileVersionEndPointHeader)
+            updateVersionResponseData = json.loads(udpateVersionResponsePayload.content)
+
+            print("SUCCESS:: Agile Version Updated")
+
+            ## Invoke/Call operation complete message popup
+            bpy.ops.message.display('INVOKE_DEFAULT',message = "File Exporting Completed and Upload Finished.")
+        else:
+            print("ERROR:: Fetch S3 SignIn URL Failed")
+            ## Invoke/Call operation failed message popup
+            bpy.ops.message.display('INVOKE_DEFAULT',message = "Fetch S3 SignIn URL Failed")
+
+    except Exception:
+        print("ERROR:: File Exporting Failed")
+        ## Invoke/Call operation failed message popup
+        bpy.ops.message.display('INVOKE_DEFAULT', message="File Exporting Failed.")
+    finally:
+        ## reset value
+        resetToDefaultValue()
+        return {'FINISHED'}
 
 # ExportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -119,7 +133,7 @@ class ExportSomeData(Operator, ExportHelper):
 # Only needed if you want to add into a dynamic menu
 def menu_func_export(self, context):
     if context.scene.isAgileVersionSelected == True:
-        self.layout.operator(ExportSomeData.bl_idname, text="Swivel Export")
+        self.layout.operator(ExportSomeData.bl_idname, text="Publish Agileview Version")
     else:
         ShowMessageBox("Please Select Agile Version First...",title="Error", icon='ERROR')
 
@@ -146,24 +160,31 @@ class LoginActionOperator (Operator):
                 logInResponsePayload = requests.post(bpy.types.Scene.authBaseURL[1]['default'],data = logInRequestPayload)
                 logInResponseData = json.loads(logInResponsePayload.content)
                 try:
-                    print("SUCCESS:: Login")
-                    bpy.context.scene.token = logInResponseData["data"]["authenticateUser"]["message"]
                     loggedInResult = logInResponseData["data"]["authenticateUser"]["result"]
-                    bpy.context.scene.isAgileViewLoaded = True;
 
-                    ## Fetch agile-view endpoint
-                    fetchAgileViewsEndPointHeader = {'authorization': bpy.context.scene.token,'Access-Control-Allow-Origin': '*'}
-                    fetchAgileViewsRequestPayload = "query{listAgileViews{agileview_id,url_name}}";
+                    ## Check login response
+                    if loggedInResult == "pass":
+                        print("SUCCESS:: Login")
+                        bpy.context.scene.token = logInResponseData["data"]["authenticateUser"]["message"]
+                        bpy.context.scene.isAgileViewLoaded = True;
 
-                    fetchAgileViewsResponsePayload = requests.post(bpy.types.Scene.coreBaseURL[1]['default'],data = fetchAgileViewsRequestPayload,headers= fetchAgileViewsEndPointHeader)
-                    fetchAgileViewsResponseData = json.loads(fetchAgileViewsResponsePayload.content)
-                    agileViewList = fetchAgileViewsResponseData["data"]["listAgileViews"]
+                        ## Fetch agile-view endpoint
+                        fetchAgileViewsEndPointHeader = {'authorization': bpy.context.scene.token,'Access-Control-Allow-Origin': '*'}
+                        fetchAgileViewsRequestPayload = "query{listAgileViews{agileview_id,url_name}}";
 
-                    if agileViewList:
-                        print("SUCCESS:: Fetch Agile View List")
-                        bpy.types.Scene.agileViewList = agileViewList
+                        fetchAgileViewsResponsePayload = requests.post(bpy.types.Scene.coreBaseURL[1]['default'],data = fetchAgileViewsRequestPayload,headers= fetchAgileViewsEndPointHeader)
+                        fetchAgileViewsResponseData = json.loads(fetchAgileViewsResponsePayload.content)
+                        agileViewList = fetchAgileViewsResponseData["data"]["listAgileViews"]
+
+                        if agileViewList:
+                            print("SUCCESS:: Fetch Agile View List")
+                            bpy.types.Scene.agileViewList = agileViewList
+                        else:
+                            print("WARNING:: Agile View List Is Null")
                     else:
-                        print("WARNING:: Agile View List Is Null")
+                        print("ERROR:: Login Failed. Invalid Credentials")
+                        ShowMessageBox("Invalid Credentials! Try Again", title="Error", icon='ERROR')
+
                     bpy.context.scene.isProcessRunning = False;
                 except Exception:
                     print("ERROR:: Fetch Agile View List")
@@ -179,10 +200,10 @@ class LoginActionOperator (Operator):
                     bpy.context.scene.isProcessRunning = False;
 
             else:
-                print("Password should not be blank")
+                print("ERROR:: Password should not be blank")
                 ShowMessageBox("Password should not be blank", title="Password", icon='ERROR')
         else:
-            print("Email should not be blank")
+            print("ERROR:: Email should not be blank")
             ShowMessageBox("Email should not be blank", title="Email", icon='ERROR')
         return {'FINISHED'}
 
@@ -285,7 +306,7 @@ class VersionSelectionPopupOperator(bpy.types.Operator):
 class MessageOperator(bpy.types.Operator):
     '''Display Export File Status'''
     bl_idname = "message.display"
-    bl_label = "AgileView Status"
+    bl_label = "Message:"
     message = bpy.props.StringProperty(default='Export File on S3')
 
     def execute(self, context):
@@ -306,7 +327,7 @@ class MessageOperator(bpy.types.Operator):
 ## Login panel use for display login UI layout in modifier properties
 class LoginLayoutPanel(Panel):
     bl_idname = "SCENE_PT_layout"
-    bl_label = "Swivel Login Panel"
+    bl_label = "Swivel Login Panel Version: " + str(addon_updater_ops.updater.current_version))
     bl_category = "Swivel Addon"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -315,8 +336,8 @@ class LoginLayoutPanel(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+
         ## Custom logo label
-        layout.row()
         layout.label(text="SWIVEL", icon_value=custom_icons["custom_icon"].icon_id)
 
         rowEmail = layout.row()
@@ -338,9 +359,10 @@ class LoginLayoutPanel(Panel):
         if scene.selectedAgileVersionId:
             layout.label(text="Selected View    : " + scene.selectedAgileViewName)
             layout.label(text="Selected Version : " + scene.selectedAgileVersionName)
+
             ## Export Operator
             rowExport = layout.row()
-            rowExport.operator(ExportSomeData.bl_idname,text="Swivel Export", icon='EXPORT')
+            rowExport.operator(ExportSomeData.bl_idname,text="Publish Agileview Version", icon='EXPORT')
         if scene.isAgileViewLoaded == True:
             layout.label(text="Please Select Agile View")
             for viewObj in bpy.types.Scene.agileViewList:
@@ -410,9 +432,9 @@ def register():
     bpy.types.Scene.selectedAgileVersionName = bpy.props.StringProperty(name="Selected VersionName", default="")
     bpy.types.Scene.selectedAgileViewName = bpy.props.StringProperty(name="Selected ViewName", default="")
     bpy.types.Scene.token = bpy.props.StringProperty(name="token", default="")
-    bpy.types.Scene.coreBaseURL = bpy.props.StringProperty(name="core API Base URL", default="https://api-dev-swivel.com/core/query")
-    bpy.types.Scene.functionalBaseURL = bpy.props.StringProperty(name="functional API Base URL", default="https://api-dev-swivel.com/functional")
-    bpy.types.Scene.authBaseURL = bpy.props.StringProperty(name="auth API Base URL", default="https://api-dev-swivel.com/auth/query")
+    bpy.types.Scene.coreBaseURL = bpy.props.StringProperty(name="core API Base URL", default=ENV_BASE_URL+"/core/query")
+    bpy.types.Scene.functionalBaseURL = bpy.props.StringProperty(name="functional API Base URL", default=ENV_BASE_URL+"/functional")
+    bpy.types.Scene.authBaseURL = bpy.props.StringProperty(name="auth API Base URL", default=ENV_BASE_URL+"/auth/query")
     bpy.types.Scene.agileViewList = []
     bpy.types.Scene.versionEnumList = []
     bpy.types.Scene.versionList = []
